@@ -1,4 +1,4 @@
-module cloudtrace
+module github.com/colindev/cloudtrace
 
 go 1.17
 
