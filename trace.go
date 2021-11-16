@@ -3,12 +3,21 @@ package cloudtrace
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"contrib.go.opencensus.io/exporter/stackdriver/propagation"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 )
+
+var (
+	hostname string
+)
+
+func init() {
+	hostname, _ = os.Hostname()
+}
 
 type Span struct {
 	*trace.Span
@@ -58,7 +67,11 @@ func BuildTraceRoundTripper(project string, tp http.RoundTripper, probability fl
 
 func ConfigureServer(s *http.Server, h http.Handler, isPub bool, isHealth func(*http.Request) bool) {
 	s.Handler = &ochttp.Handler{
-		Handler:          h,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			span := trace.FromContext(r.Context())
+			span.AddAttributes(trace.StringAttribute("hostname", hostname))
+			h.ServeHTTP(w, r)
+		}),
 		Propagation:      &propagation.HTTPFormat{},
 		IsPublicEndpoint: isPub,
 		IsHealthEndpoint: isHealth,
