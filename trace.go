@@ -3,6 +3,7 @@ package cloudtrace
 import (
 	"context"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -31,6 +32,7 @@ func init() {
 	}
 	res, err := c.Do(r)
 	if err != nil {
+		log.Println("skip set project:", err)
 		return
 	}
 	defer res.Body.Close()
@@ -88,6 +90,7 @@ func ConfigureServer(s *http.Server, h http.Handler, isPub bool, isHealth func(*
 	s.Handler = &ochttp.Handler{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			span := trace.FromContext(r.Context())
+			span.AddAttributes(trace.StringAttribute("project", projectId))
 			span.AddAttributes(trace.StringAttribute("hostname", hostname))
 			h.ServeHTTP(w, r)
 		}),
