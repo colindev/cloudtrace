@@ -2,8 +2,11 @@ package cloudtrace
 
 import (
 	"context"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"contrib.go.opencensus.io/exporter/stackdriver/propagation"
@@ -12,11 +15,27 @@ import (
 )
 
 var (
-	hostname string
+	projectId string
+	hostname  string
 )
 
 func init() {
 	hostname, _ = os.Hostname()
+	r, _ := http.NewRequest(
+		http.MethodGet,
+		"http://metadata.google.internal/computeMetadata/v1/project/project-id",
+		nil)
+	r.Header.Set("Metadata-Flavor", "Google")
+	c := http.Client{
+		Timeout: time.Millisecond * 100,
+	}
+	res, err := c.Do(r)
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+	b, _ := ioutil.ReadAll(res.Body)
+	projectId = strings.TrimSpace(string(b))
 }
 
 type Span struct {
