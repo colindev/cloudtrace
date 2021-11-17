@@ -40,6 +40,10 @@ func init() {
 	projectId = strings.TrimSpace(string(b))
 }
 
+func formatSpanName(r *http.Request) string {
+	return r.URL.Scheme + "://" + r.URL.Host + "/" + r.URL.Path
+}
+
 type Span struct {
 	*trace.Span
 }
@@ -82,8 +86,13 @@ func BuildTraceRoundTripper(project string, tp http.RoundTripper, probability fl
 	return &ochttp.Transport{
 		Base: tp,
 		// Use Google Cloud propagation format.
-		Propagation: &propagation.HTTPFormat{},
+		Propagation:    &propagation.HTTPFormat{},
+		FormatSpanName: formatSpanName,
 	}, nil
+}
+
+func WithRouteTag(handler http.Handler, route string) http.Handler {
+	return ochttp.WithRouteTag(handler, route)
 }
 
 func ConfigureServer(s *http.Server, h http.Handler, isPub bool, isHealth func(*http.Request) bool) {
@@ -95,6 +104,7 @@ func ConfigureServer(s *http.Server, h http.Handler, isPub bool, isHealth func(*
 			h.ServeHTTP(w, r)
 		}),
 		Propagation:      &propagation.HTTPFormat{},
+		FormatSpanName:   formatSpanName,
 		IsPublicEndpoint: isPub,
 		IsHealthEndpoint: isHealth,
 	}
