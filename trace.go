@@ -53,7 +53,15 @@ func StartSpan(ctx context.Context, name string) (context.Context, *Span) {
 	return ctx, &Span{span}
 }
 
-func ApplyConfig(probability float64) {
+func ApplyConfig(project string, probability float64) error {
+	exporter, err := stackdriver.NewExporter(stackdriver.Options{
+		ProjectID: project,
+	})
+	if err != nil {
+		return err
+	}
+
+	trace.RegisterExporter(exporter)
 	// trace.Config{DefaultSampler: trace.AlwaysSample()}
 	trace.ApplyConfig(trace.Config{
 		// DefaultSampler is the default sampler used when creating new spans.
@@ -74,24 +82,18 @@ func ApplyConfig(probability float64) {
 		// MaxLinksPerSpan is max number of links per span
 		MaxLinksPerSpan: 0,
 	})
+
+	return nil
 }
 
-func BuildTraceRoundTripper(project string, tp http.RoundTripper) (http.RoundTripper, error) {
-	exporter, err := stackdriver.NewExporter(stackdriver.Options{
-		ProjectID: project,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	trace.RegisterExporter(exporter)
+func BuildTraceRoundTripper(tp http.RoundTripper) http.RoundTripper {
 
 	return &ochttp.Transport{
 		Base: tp,
 		// Use Google Cloud propagation format.
 		Propagation:    &propagation.HTTPFormat{},
 		FormatSpanName: formatSpanName,
-	}, nil
+	}
 }
 
 func WithRouteTag(handler http.Handler, route string) http.Handler {
