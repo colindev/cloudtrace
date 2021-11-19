@@ -18,7 +18,8 @@ func Test(t *testing.T) {
 		proj = os.Getenv("PROJECT")
 		err  error
 	)
-	http.DefaultTransport, err = BuildTraceRoundTripper(proj, http.DefaultTransport, 1)
+	ApplyConfig(1)
+	http.DefaultTransport, err = BuildTraceRoundTripper(proj, http.DefaultTransport)
 	if err != nil {
 		t.Error(err)
 		return
