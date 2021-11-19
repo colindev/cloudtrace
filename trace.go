@@ -95,17 +95,33 @@ func WithRouteTag(handler http.Handler, route string) http.Handler {
 	return ochttp.WithRouteTag(handler, route)
 }
 
-func ConfigureServer(s *http.Server, h http.Handler, isPub bool, isHealth func(*http.Request) bool) {
-	s.Handler = &ochttp.Handler{
+var tags map[string]string
+
+func WithGlobalTags(m map[string]string) {
+	tags = m
+}
+
+func WrapHandler(handler http.Handler, isPub bool, isHealth func(*http.Request) bool) http.Handler {
+	return &ochttp.Handler{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			span := trace.FromContext(r.Context())
-			span.AddAttributes(trace.StringAttribute("project", projectId))
-			span.AddAttributes(trace.StringAttribute("hostname", hostname))
-			h.ServeHTTP(w, r)
+			attrs := []trace.Attribute{
+				trace.StringAttribute("project", projectId),
+				trace.StringAttribute("hostname", hostname),
+			}
+			for k, v := range tags {
+				attrs = append(attrs, trace.StringAttribute(k, v))
+			}
+			span.AddAttributes(attrs...)
+			handler.ServeHTTP(w, r)
 		}),
 		Propagation:      &propagation.HTTPFormat{},
 		FormatSpanName:   formatSpanName,
 		IsPublicEndpoint: isPub,
 		IsHealthEndpoint: isHealth,
 	}
+}
+
+func ConfigureServer(s *http.Server, h http.Handler, isPub bool, isHealth func(*http.Request) bool) {
+	s.Handler = WrapHandler(h, isPub, isHealth)
 }

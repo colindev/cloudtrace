@@ -34,6 +34,13 @@ func Test(t *testing.T) {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = http.DefaultTransport
 
+	// tags
+	var m = map[string]string{
+		"A": "aa",
+		"B": "bb",
+	}
+	WithGlobalTags(m)
+
 	// only for get handler
 	server := &http.Server{}
 	ConfigureServer(server, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,5 +53,5 @@ func Test(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	server.Handler.ServeHTTP(recorder, request)
 
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 5)
 }
