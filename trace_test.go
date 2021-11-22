@@ -54,5 +54,6 @@ func Test(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	server.Handler.ServeHTTP(recorder, request)
 
+	Debug()
 	time.Sleep(time.Second * 5)
 }

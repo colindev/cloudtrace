@@ -2,17 +2,17 @@ package cloudtrace
 
 import (
 	"context"
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
-	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"contrib.go.opencensus.io/exporter/stackdriver/propagation"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
+	"golang.org/x/oauth2/google"
 )
 
 var (
@@ -22,22 +22,23 @@ var (
 
 func init() {
 	hostname, _ = os.Hostname()
-	r, _ := http.NewRequest(
-		http.MethodGet,
-		"http://metadata.google.internal/computeMetadata/v1/project/project-id",
-		nil)
-	r.Header.Set("Metadata-Flavor", "Google")
-	c := http.Client{
-		Timeout: time.Millisecond * 100,
+	if metadata.OnGCE() {
+		projectId, _ = metadata.ProjectID()
+	} else {
+		projectId = "unknown"
 	}
-	res, err := c.Do(r)
+	log.Println("set project:", projectId)
+}
+
+func Debug() {
+	certs, err := google.FindDefaultCredentials(context.Background())
 	if err != nil {
-		log.Println("skip set project:", err)
+		fmt.Println(err)
 		return
 	}
-	defer res.Body.Close()
-	b, _ := ioutil.ReadAll(res.Body)
-	projectId = strings.TrimSpace(string(b))
+
+	fmt.Println(certs.ProjectID)
+	fmt.Println(string(certs.JSON))
 }
 
 func formatSpanName(r *http.Request) string {
