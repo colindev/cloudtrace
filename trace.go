@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"contrib.go.opencensus.io/exporter/stackdriver"
@@ -101,10 +102,29 @@ func WithRouteTag(handler http.Handler, route string) http.Handler {
 	return ochttp.WithRouteTag(handler, route)
 }
 
-var tags map[string]string
+type Tags map[string]string
 
-func WithGlobalTags(m map[string]string) {
-	tags = m
+var tags = Tags{}
+
+func (t Tags) Set(s string) error {
+	ss := strings.SplitN(s, "=", 2)
+	t[ss[0]] = ss[1]
+	return nil
+}
+
+func (t Tags) String() string {
+	ss := []string{}
+	for k, v := range map[string]string(t) {
+		ss = append(ss, k+"="+v)
+	}
+
+	return strings.Join(ss, ", ")
+}
+
+func WithGlobalTags(m Tags) {
+	for k, v := range m {
+		tags[k] = v
+	}
 }
 
 func WrapHandler(handler http.Handler, isPub bool, isHealth func(*http.Request) bool) http.Handler {

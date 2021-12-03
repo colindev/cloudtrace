@@ -41,6 +41,16 @@ func Test(t *testing.T) {
 		"B": "bb",
 	}
 	WithGlobalTags(m)
+	var mm = Tags{}
+	if err := mm.Set("C=cc"); err != nil {
+		t.Error(err)
+	}
+	if err := mm.Set("D=dd"); err != nil {
+		t.Error(err)
+	}
+	t.Log(mm)
+	WithGlobalTags(mm)
+	t.Log(mm.String())
 
 	// only for get handler
 	server := &http.Server{}
