@@ -112,7 +112,7 @@ func WithHTTPTrace(tp http.RoundTripper) http.RoundTripper {
 func newClientTrace(r *http.Request, ts *trace.Span) *httptrace.ClientTrace {
 
 	var (
-		ctx                    = r.Context()
+		ctx                    = trace.NewContext(r.Context(), ts)
 		connSpan               *trace.Span
 		tcpSpan                *trace.Span
 		dnsSpan                *trace.Span
