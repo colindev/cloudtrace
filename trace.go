@@ -2,9 +2,11 @@ package cloudtrace
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"strings"
 
@@ -95,6 +97,75 @@ func BuildTraceRoundTripper(tp http.RoundTripper) http.RoundTripper {
 		// Use Google Cloud propagation format.
 		Propagation:    &propagation.HTTPFormat{},
 		FormatSpanName: formatSpanName,
+	}
+}
+
+func WithHTTPTrace(tp http.RoundTripper) http.RoundTripper {
+	if _tp, ok := tp.(*ochttp.Transport); ok {
+		_tp.NewClientTrace = newClientTrace
+		return _tp
+	}
+
+	return tp
+}
+
+func newClientTrace(r *http.Request, ts *trace.Span) *httptrace.ClientTrace {
+
+	var (
+		ctx                    = r.Context()
+		connSpan               *trace.Span
+		tcpSpan                *trace.Span
+		dnsSpan                *trace.Span
+		tlsSpan                *trace.Span
+		writeRequestHeaderSpan *trace.Span
+		writeRequestBodySpan   *trace.Span
+		firstByteSpan          *trace.Span
+		readResponseSpan       *trace.Span
+	)
+
+	return &httptrace.ClientTrace{
+		GetConn: func(string) {
+			_, connSpan = trace.StartSpan(ctx, "GetConn")
+		},
+		GotConn: func(httptrace.GotConnInfo) {
+			connSpan.End()
+			_, writeRequestHeaderSpan = trace.StartSpan(ctx, "WriteRequestHeader")
+		},
+		ConnectStart: func(network, addr string) {
+			_, tcpSpan = trace.StartSpan(ctx, "TCP")
+		},
+		ConnectDone: func(network, addr string, err error) {
+			tcpSpan.End()
+		},
+		DNSStart: func(httptrace.DNSStartInfo) {
+			_, dnsSpan = trace.StartSpan(ctx, "DNS")
+		},
+		DNSDone: func(httptrace.DNSDoneInfo) {
+			dnsSpan.End()
+		},
+		TLSHandshakeStart: func() {
+			_, tlsSpan = trace.StartSpan(ctx, "TLSHandshake")
+		},
+		TLSHandshakeDone: func(state tls.ConnectionState, err error) {
+			tlsSpan.End()
+		},
+		WroteHeaders: func() {
+			writeRequestHeaderSpan.End()
+			_, writeRequestBodySpan = trace.StartSpan(ctx, "WriteRequestBody")
+		},
+		WroteRequest: func(httptrace.WroteRequestInfo) {
+			writeRequestBodySpan.End()
+			_, firstByteSpan = trace.StartSpan(ctx, "WaitFirstByte")
+		},
+		GotFirstResponseByte: func() {
+			firstByteSpan.End()
+			_, readResponseSpan = trace.StartSpan(ctx, "ReadResponse")
+		},
+		PutIdleConn: func(err error) {
+			readResponseSpan.End()
+			_, span := trace.StartSpan(ctx, "PutIdleConn")
+			defer span.End()
+		},
 	}
 }
 
